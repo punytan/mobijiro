@@ -11,6 +11,8 @@ use AnyEvent::IRC::Connection;
 use AnyEvent::IRC::Client;
 use Tatsumaki::HTTPClient;
 use Web::Scraper;
+use Socket;
+use URI;
 
 our $CONFIG = {
     ch => '#',
@@ -21,6 +23,7 @@ our $CONFIG = {
         user => '',
         real => 'the bot',
     },
+    loopback => inet_ntoa( inet_aton('localhost') ),
 };
 
 #-----
@@ -103,31 +106,43 @@ sub process_msg {
     for my $url (@url_list) {
         say "[ $LT ] $url";
 
-        if (is_uri($url)) {
+        next unless is_uri($url);
+
+        $ua->head($url, timeout => 3, sub {
+            my $res = shift;
+
+            my $remote = URI->new( $res->header('url') )->host;
+            my $remote_addr = inet_ntoa( inet_aton($remote) );
+
+            if (
+                $remote_addr eq $CONFIG->{loopback}
+                || ! $res->headers->content_length
+                || $res->headers->content_length > 1024 * 1024
+            ) {
+                my $msg = encode_utf8("failed to fetch : $url");
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                return;
+            }
+
             $ua->get($url, timeout => 3, sub {
-                    my $res = shift;
+                my $res = shift;
 
-                    my $info = {};
-                    my $decoded_content = $res->decoded_content;
+                my $info = {};
+                my $decoded_content = $res->decoded_content;
 
-                    $info->{content_type} = $res->headers->content_type;
+                $info->{content_type} = $res->headers->content_type;
 
-                    if ($res->is_success) {
-                        my $data = $scraper->scrape($res->decoded_content);
-                        $info->{title} = $data->{title};
-                    } else {
-                        $info->{title} = 'NO TITLE';
-                    }
-
-                    my $msg = encode_utf8(" $info->{title} [ Content-Type: $info->{content_type} ] ");
-
-                    $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                if ($res->is_success) {
+                    my $data = $scraper->scrape($res->decoded_content);
+                    $info->{title} = $data->{title};
+                } else {
+                    $info->{title} = 'NO TITLE';
                 }
-            );
-        } 
-        else {
-            $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$url is not valid URL");
-        }
+
+                my $msg = encode_utf8(" $info->{title} [ Content-Type: $info->{content_type} ] ( $url )");
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+            });
+        });
     }
 }
 
