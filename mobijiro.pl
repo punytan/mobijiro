@@ -114,12 +114,13 @@ sub process_msg {
             my $remote = URI->new( $res->header('url') )->host;
             my $remote_addr = inet_ntoa( inet_aton($remote) );
 
-            if (
-                $remote_addr eq $CONFIG->{loopback}
-                || ! $res->headers->content_length
-                || $res->headers->content_length > 1024 * 1024
-            ) {
-                my $msg = encode_utf8("failed to fetch : $url");
+            if ($remote_addr eq $CONFIG->{loopback}) {
+                my $msg = encode_utf8("$url is loopback!");
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                return;
+            }
+            elsif ($res->headers->content_length > 1024 * 1024) {
+                my $msg = encode_utf8("Too large to fetch: $url [ " . $res->content_type . " ]");
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
                 return;
             }
