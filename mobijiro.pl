@@ -13,18 +13,27 @@ use Tatsumaki::HTTPClient;
 use Web::Scraper;
 use Socket;
 use URI;
+use XML::Simple;
 
-our $CONFIG = {
-    ch => '#',
-    server => 'irc.freenode.net',
-    port => 6667,
-    info => {
-        nick => '',
-        user => '',
-        real => 'the bot',
-    },
-    loopback => inet_ntoa( inet_aton('localhost') ),
-};
+our $CONFIG;
+
+if (-f 'settings.xml') {
+    $CONFIG = XMLin('settings.xml');
+}
+else {
+    $CONFIG = {
+        ch => '#',
+        server => 'irc.freenode.net',
+        port => 6667,
+        info => {
+            nick => '',
+            user => '',
+            real => 'the bot',
+        },
+    };
+}
+
+$CONFIG->{loopback} = loopback => inet_ntoa( inet_aton('localhost') );
 
 #-----
 
