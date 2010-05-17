@@ -33,7 +33,7 @@ else {
     };
 }
 
-$CONFIG->{loopback} = loopback => inet_ntoa( inet_aton('localhost') );
+$CONFIG->{loopback} = inet_ntoa( inet_aton('localhost') );
 
 #-----
 
