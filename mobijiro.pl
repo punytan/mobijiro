@@ -108,6 +108,10 @@ sub process_msg {
 
         next unless is_uri($url);
 
+        if (is_twitter($url)) {
+            send_twitter_status($url);
+        }
+
         $ua->head($url, timeout => 3, sub {
             my $res = shift;
 
@@ -147,4 +151,28 @@ sub process_msg {
     }
 }
 
+sub is_twitter {
+    my $url = shift;
+
+    ($url =~ m{^http://twitter.com/[^/]+/status/\d+}) ? return 1 : return undef;
+}
+
+sub send_twitter_status {
+    my $url = shift;
+
+    $ua->get($url, timeout => 3, sub {
+        my $res = shift;
+
+        return unless ($res->is_success); 
+
+        my $ts = scraper {
+            process '.entry-content', 'tweet' => 'TEXT';
+        };
+
+        my $status = $ts->scrape($res->decoded_content);
+
+        my $msg = encode_utf8("$status->{tweet} ( $url )");
+        $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, $msg);
+    });
+}
 __END__
