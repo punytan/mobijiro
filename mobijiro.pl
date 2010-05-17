@@ -119,6 +119,7 @@ sub process_msg {
 
         if (is_twitter($url)) {
             send_twitter_status($url);
+            next;
         }
 
         $ua->head($url, timeout => 3, sub {
@@ -176,11 +177,12 @@ sub send_twitter_status {
 
         my $ts = scraper {
             process '.entry-content', 'tweet' => 'TEXT';
+            process '.screen-name', 'screen_name' => 'TEXT';
         };
 
         my $status = $ts->scrape($res->decoded_content);
 
-        my $msg = encode_utf8("$status->{tweet} ( $url )");
+        my $msg = encode_utf8("[!T] <$status->{screen_name}> $status->{tweet} / via $url ");
         $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, $msg);
     });
 }
