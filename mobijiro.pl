@@ -138,6 +138,11 @@ sub process_msg {
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
                 return;
             }
+            elsif ($res->headers->content_type ne 'text/html') {
+                my $msg = encode_utf8("[Content-Type: " . $res->headers->content_type . "]");
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                return;
+            }
 
             $ua->get($url, timeout => 3, sub {
                 my $res = shift;
@@ -154,7 +159,7 @@ sub process_msg {
                     $info->{title} = 'NO TITLE';
                 }
 
-                my $msg = encode_utf8(" $info->{title} [ Content-Type: $info->{content_type} ] ( $url )");
+                my $msg = encode_utf8("$info->{title} [$info->{content_type}] ( $url )");
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
             });
         });
