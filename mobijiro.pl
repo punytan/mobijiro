@@ -182,7 +182,7 @@ sub send_twitter_status {
 
         my $status = $ts->scrape($res->decoded_content);
 
-        my $msg = encode_utf8("[!T] <$status->{screen_name}> $status->{tweet} / via $url ");
+        my $msg = encode_utf8("<$status->{screen_name}> $status->{tweet} / via $url ");
         $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, $msg);
     });
 }
