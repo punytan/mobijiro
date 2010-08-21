@@ -19,8 +19,7 @@ our $CONFIG;
 
 if (-f 'settings.xml') {
     $CONFIG = XMLin('settings.xml');
-}
-else {
+} else {
     $CONFIG = {
         ch => '#',
         server => 'irc.freenode.net',
@@ -169,7 +168,7 @@ sub process_msg {
 sub is_twitter {
     my $url = shift;
 
-    ($url =~ m{^http://twitter.com/[^/]+/status/\d+}) ? return 1 : return undef;
+    return ($url =~ m{^http://twitter.com/[^/]+/status/\d+}) ? 1 : undef;
 }
 
 sub send_twitter_status {
