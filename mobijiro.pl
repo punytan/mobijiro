@@ -19,6 +19,7 @@ our $CONFIG;
 
 if (-f 'settings.xml') {
     $CONFIG = XMLin('settings.xml');
+
 } else {
     $CONFIG = {
         ch => '#',
@@ -30,6 +31,7 @@ if (-f 'settings.xml') {
             real => 'the bot',
         },
     };
+
 }
 
 $CONFIG->{loopback} = inet_ntoa( inet_aton('localhost') );
@@ -68,6 +70,7 @@ sub connect_to_server {
     say "[ $LT ] start connection";
 
     $cl = AnyEvent::IRC::Client->new;
+
     $cl->reg_cb(
         'connect' => sub {
             my ( $cl, $err ) = @_;
@@ -81,6 +84,7 @@ sub connect_to_server {
                 $CONNECTION = 1;
             }
         },
+
         registered => sub {
             my ($self) = @_;
             print "[ $LT ] registered!\n";
@@ -89,14 +93,17 @@ sub connect_to_server {
             $cl->send_srv("JOIN", $CONFIG->{ch});
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "hi, i'm a bot!");
         },
+
         irc_001 => sub {
             say "[ $LT ] irc_001";
         },
+
         irc_privmsg => sub {
             my ($self, $msg) = @_;
             my $message = decode_utf8 $msg->{params}[1];
             process_msg($message);
         },
+
         disconnect => sub {
             $CONNECTION = 0;
             print "[ $LT ] Oh, got a disconnect: $_[1], exiting...\n";
@@ -131,36 +138,40 @@ sub process_msg {
                 my $msg = encode_utf8("$url is loopback!");
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
                 return;
-            }
-            elsif ($res->headers->content_length > 1024 * 1024) {
+
+            } elsif ($res->headers->content_length > 1024 * 1024) {
                 my $msg = encode_utf8("Too large to fetch: $url [ " . $res->content_type . " ]");
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
                 return;
-            }
-            elsif ($res->headers->content_type ne 'text/html') {
+
+            } elsif ($res->headers->content_type ne 'text/html') {
                 my $msg = encode_utf8("[Content-Type: " . $res->headers->content_type . "]");
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
                 return;
+
+            } else {
+                $ua->get($url, timeout => 3, sub {
+                    my $res = shift;
+
+                    my $info = {};
+                    my $decoded_content = $res->decoded_content;
+
+                    $info->{content_type} = $res->headers->content_type;
+
+                    if ($res->is_success) {
+                        my $data = $scraper->scrape($res->decoded_content);
+                        $info->{title} = $data->{title};
+
+                    } else {
+                        $info->{title} = 'NO TITLE';
+
+                    }
+
+                    my $msg = encode_utf8("$info->{title} [$info->{content_type}] $url)))");
+                    $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                });
+
             }
-
-            $ua->get($url, timeout => 3, sub {
-                my $res = shift;
-
-                my $info = {};
-                my $decoded_content = $res->decoded_content;
-
-                $info->{content_type} = $res->headers->content_type;
-
-                if ($res->is_success) {
-                    my $data = $scraper->scrape($res->decoded_content);
-                    $info->{title} = $data->{title};
-                } else {
-                    $info->{title} = 'NO TITLE';
-                }
-
-                my $msg = encode_utf8("$info->{title} [$info->{content_type}] ( $url )");
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
-            });
         });
     }
 }
@@ -190,4 +201,6 @@ sub send_twitter_status {
         $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, $msg);
     });
 }
+
 __END__
+
