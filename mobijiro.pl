@@ -133,21 +133,20 @@ sub process_msg {
 
             my $remote = URI->new( $res->header('url') )->host;
             my $remote_addr = inet_ntoa( inet_aton($remote) );
+            my $content_length = $res->headers->content_length ? $res->headers->content_length : 0;
 
+            my $msg = "";
             if ($remote_addr eq $CONFIG->{loopback}) {
-                my $msg = encode_utf8("$url is loopback!");
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
-                return;
+                $msg = "$url is loopback!";
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
-            } elsif ($res->headers->content_length > 1024 * 1024) {
-                my $msg = encode_utf8("Too large to fetch: $url [ " . $res->content_type . " ]");
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
-                return;
+            } elsif ($content_length > 0 && $content_length > 1024 * 1024) {
+                $msg = "Too large to fetch: $url [ " . $res->content_type . " ]";
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
             } elsif ($res->headers->content_type ne 'text/html') {
-                my $msg = encode_utf8("[Content-Type: " . $res->headers->content_type . "]");
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
-                return;
+                $msg = "[Content-Type: " . $res->headers->content_type . "]";
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
             } else {
                 $ua->get($url, timeout => 3, sub {
@@ -167,11 +166,12 @@ sub process_msg {
 
                     }
 
-                    my $msg = encode_utf8("$info->{title} [$info->{content_type}] $url)))");
-                    $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "$msg");
+                    $msg = "$info->{title} [$info->{content_type}] $url";
+                    $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
                 });
 
             }
+
         });
     }
 }
