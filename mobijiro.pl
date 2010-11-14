@@ -1,6 +1,4 @@
-use strict;
-use warnings;
-use 5.12.1;
+use common::sense;
 use Data::Dumper;
 use Encode;
 use Data::Validate::URI qw/is_uri/;
