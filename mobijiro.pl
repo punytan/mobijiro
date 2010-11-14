@@ -179,11 +179,13 @@ sub process_msg {
 sub is_twitter {
     my $url = shift;
 
-    return ($url =~ m{^http://twitter.com/[^/]+/status/\d+}) ? 1 : undef;
+    return ($url =~ m{^http://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
 }
 
 sub send_twitter_status {
     my $url = shift;
+
+    $url =~ s{\.com/#!/}{.com/};
 
     $ua->get($url, timeout => 3, sub {
         my $res = shift;
