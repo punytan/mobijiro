@@ -10,13 +10,11 @@ use Tatsumaki::HTTPClient;
 use Web::Scraper;
 use Socket;
 use URI;
-use XML::Simple;
 
 our $CONFIG;
 
-if (-f 'settings.xml') {
-    $CONFIG = XMLin('settings.xml');
-
+if (-f 'settings.pl') {
+    $CONFIG = do 'settings.pl' or die $!;
 } else {
     $CONFIG = {
         ch => '#',
@@ -28,7 +26,6 @@ if (-f 'settings.xml') {
             real => 'the bot',
         },
     };
-
 }
 
 $CONFIG->{loopback} = inet_ntoa( inet_aton('localhost') );
