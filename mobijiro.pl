@@ -1,12 +1,14 @@
 use common::sense;
 use Encode;
-use Data::Validate::URI qw/is_uri/;
+use Socket;
+
 use AnyEvent;
 use AnyEvent::IRC::Client;
 use Tatsumaki::HTTPClient;
-use Web::Scraper;
-use Socket;
+
 use URI;
+use Web::Scraper;
+use Data::Validate::URI ();
 
 our $CONFIG;
 
@@ -92,7 +94,12 @@ sub connect_to_server {
         irc_privmsg => sub {
             my ($self, $msg) = @_;
             my $message = decode_utf8 $msg->{params}[1];
-            process_msg($message);
+
+            my @url_list = $message =~ m{(http://[\S]+)}g;
+
+            for my $url (@url_list) {
+                process_url($url);
+            }
         },
 
         disconnect => sub {
@@ -104,73 +111,62 @@ sub connect_to_server {
     $cl->connect(@conf);
 }
 
-sub process_msg {
-    my $msg = shift;
+sub process_url {
+    my $url = shift;
 
-    my @url_list = $msg =~ m{(http://[\S]+)}g;
+    say "[ $LT ] $url";
 
-    for my $url (@url_list) {
-        say "[ $LT ] $url";
+    return unless Data::Validate::URI::is_uri($url);
 
-        next unless is_uri($url);
+    if (is_twitter($url)) {
+        send_twitter_status($url);
+        return;
+    }
 
-        if (is_twitter($url)) {
-            send_twitter_status($url);
-            next;
-        }
+    $ua->head($url, timeout => 3, sub {
+        my $res = shift;
 
-        $ua->head($url, timeout => 3, sub {
-            my $res = shift;
+        my $remote = URI->new( $res->header('url') )->host;
+        my $remote_addr = inet_ntoa( inet_aton($remote) );
+        my $content_length = $res->headers->content_length ? $res->headers->content_length : 0;
 
-            my $remote = URI->new( $res->header('url') )->host;
-            my $remote_addr = inet_ntoa( inet_aton($remote) );
-            my $content_length = $res->headers->content_length ? $res->headers->content_length : 0;
+        if ($remote_addr eq $CONFIG->{loopback}) {
+            my $msg = sprintf "%s is loopback!", $url;
+            $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
-            my $msg = "";
-            if ($remote_addr eq $CONFIG->{loopback}) {
-                $msg = "$url is loopback!";
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
+        } elsif ($content_length > 0 && $content_length > 1024 * 1024) {
+            my $msg = sprintf "Too large to fetch: %s [ %s ]", $url, $res->content_type;
+            $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
-            } elsif ($content_length > 0 && $content_length > 1024 * 1024) {
-                $msg = "Too large to fetch: $url [ " . $res->content_type . " ]";
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
+        } elsif ($res->headers->content_type ne 'text/html') {
+            my $msg = "%s is not HTML [%s]", $url, $res->headers->content_type;
+            $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
-            } elsif ($res->headers->content_type ne 'text/html') {
-                $msg = "[Content-Type: " . $res->headers->content_type . "]";
-                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
+        } else {
+            $ua->get($url, timeout => 3, sub {
+                my $res = shift;
 
-            } else {
-                $ua->get($url, timeout => 3, sub {
-                    my $res = shift;
-
-                    my $info = {};
-                    my $decoded_content = $res->decoded_content;
-
+                my $info = {};
+                if ($res->is_success) {
+                    my $data = $scraper->scrape($res->decoded_content);
+                    $info->{title} = $data->{title};
                     $info->{content_type} = $res->headers->content_type;
 
-                    if ($res->is_success) {
-                        my $data = $scraper->scrape($res->decoded_content);
-                        $info->{title} = $data->{title};
+                } else {
+                    $info->{title} = $res->status_line;
+                }
 
-                    } else {
-                        $info->{title} = 'NO TITLE';
+                my $msg = "%s [%s] %s", $info->{title}, $info->{content_type}, $url;
+                $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
+            });
 
-                    }
+        }
 
-                    $msg = "$info->{title} [$info->{content_type}] $url";
-                    $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
-                });
-
-            }
-
-        });
-    }
+    });
 }
 
 sub is_twitter {
-    my $url = shift;
-
-    return ($url =~ m{^http://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
+    return ($_[0] =~ m{^http://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
 }
 
 sub send_twitter_status {
@@ -190,8 +186,8 @@ sub send_twitter_status {
 
         my $status = $ts->scrape($res->decoded_content);
 
-        my $msg = encode_utf8("<$status->{screen_name}> $status->{tweet} / via $url ");
-        $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, $msg);
+        my $msg = sprintf "<%s> %s / via %s", $status->{screen_name}, $status->{tweet}, $url;
+        $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
     });
 }
 
