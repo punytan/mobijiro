@@ -156,7 +156,7 @@ sub process_url {
                     $info->{title} = $res->status_line;
                 }
 
-                my $msg = "%s [%s] %s", $info->{title}, $info->{content_type}, $url;
+                my $msg = sprintf "%s [%s] %s", $info->{title}, $info->{content_type}, $url;
                 $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
             });
 
