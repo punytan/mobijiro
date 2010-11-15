@@ -139,7 +139,7 @@ sub process_url {
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
         } elsif ($res->headers->content_type ne 'text/html') {
-            my $msg = "%s is not HTML [%s]", $url, $res->headers->content_type;
+            my $msg = sprintf "%s is not HTML [%s]", $url, $res->headers->content_type;
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
         } else {
