@@ -31,6 +31,8 @@ $CONFIG->{loopback} = inet_ntoa( inet_aton('localhost') );
 
 #-----
 
+local $| = 1;
+
 our $CONNECTION = 0;
 our $LT = scalar localtime;
 
