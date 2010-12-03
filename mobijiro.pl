@@ -97,7 +97,7 @@ sub connect_to_server {
             my ($self, $msg) = @_;
             my $message = decode_utf8 $msg->{params}[1];
 
-            my @url_list = $message =~ m{(http://[\S]+)}g;
+            my @url_list = $message =~ m{(https?://[\S]+)}g;
 
             for my $url (@url_list) {
                 process_url($url);
@@ -168,7 +168,7 @@ sub process_url {
 }
 
 sub is_twitter {
-    return ($_[0] =~ m{^http://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
+    return ($_[0] =~ m{^https?://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
 }
 
 sub send_twitter_status {
