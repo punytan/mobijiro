@@ -36,24 +36,22 @@ local $| = 1;
 our $CONNECTION = 0;
 our $LT = scalar localtime;
 
-my @conf = ( $CONFIG->{server}, $CONFIG->{port}, $CONFIG->{info} );
+my @conf = ($CONFIG->{server}, $CONFIG->{port}, $CONFIG->{info});
 
-my $cv = AnyEvent->condvar;
+my $cv = AE::cv;
 
 my $ua = Tatsumaki::HTTPClient->new;
 
 my $cl;
 
-my $ltw; $ltw = AnyEvent->timer(
-    after    => 1,
-    interval => 1,
-    cb       => sub { $LT = scalar localtime; },
-);
+my $ltw; $ltw = AE::timer 1, 1, sub {
+    $LT = scalar localtime;
+};
 
-my $t; $t = AnyEvent->timer (after => 5, interval=> 30, cb => sub {
+my $t; $t = AE::timer 5, 30, sub {
     say "[ $LT ] connection status : $CONNECTION";
     connect_to_server() unless $CONNECTION;
-});
+};
 
 my $scraper = scraper {
     process '/html/head/title', 'title' => 'TEXT';
@@ -68,13 +66,14 @@ sub connect_to_server {
 
     $cl->reg_cb(
         'connect' => sub {
-            my ( $cl, $err ) = @_;
-            if ( defined $err ) {
+            my ($cl, $err) = @_;
+
+            if (defined $err) {
                 print "[ $LT ] Connect ERROR! => $err\n";
                 $CONNECTION = 0;
                 $cv->broadcast;
-            }
-            else {
+
+            } else {
                 print "[ $LT ] Connected! Yay!\n";
                 $CONNECTION = 1;
             }
@@ -82,26 +81,24 @@ sub connect_to_server {
 
         registered => sub {
             my ($self) = @_;
+
             print "[ $LT ] registered!\n";
-            $cl->enable_ping (60);
+            $cl->enable_ping(60);
 
             $cl->send_srv("JOIN", $CONFIG->{ch});
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, "hi, i'm a bot!");
         },
 
-        irc_001 => sub {
-            say "[ $LT ] irc_001";
-        },
+        irc_001 => sub { say "[ $LT ] irc_001"; },
 
         irc_privmsg => sub {
             my ($self, $msg) = @_;
+
             my $message = decode_utf8 $msg->{params}[1];
 
             my @url_list = $message =~ m{(https?://[\S]+)}g;
 
-            for my $url (@url_list) {
-                process_url($url);
-            }
+            process_url($_) for (@url_list);
         },
 
         disconnect => sub {
@@ -141,7 +138,7 @@ sub process_url {
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
         } elsif ($res->headers->content_type ne 'text/html') {
-            my $msg = sprintf "%s is not HTML [%s]", $url, $res->headers->content_type;
+            my $msg = sprintf "%s [%s]", $url, $res->headers->content_type;
             $cl->send_chan($CONFIG->{ch}, "NOTICE", $CONFIG->{ch}, encode_utf8($msg));
 
         } else {
