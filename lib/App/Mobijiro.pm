@@ -82,29 +82,6 @@ sub resolve {
 
     return unless Data::Validate::URI::is_uri($url);
 
-    if ($self->is_twitter($url)) {
-        $url =~ s{\.com/#!/}{.com/};
-        say "Twitter: $url" if DEBUG;
-        $self->ua->get($url, sub {
-            my $res = shift;
-
-            unless ($res->is_success) {
-                $self->send(sprintf "Error: %s", $res->status_line);
-                return;
-            }
-
-            my $ts = scraper {
-                process '.entry-content', 'tweet' => 'TEXT';
-                process '.screen-name', 'name' => 'TEXT';
-            };
-
-            my $s = $ts->scrape($res->decoded_content);
-
-            $self->send(sprintf "<%s> %s / via %s", $s->{name}, $s->{tweet}, $url);
-        });
-        return;
-    }
-
     $self->ua->head($url, sub {
         my $res = shift;
         my $h = $res->headers;
@@ -134,6 +111,29 @@ sub resolve {
 
         if ($remote->{type} ne 'text/html') {
             $self->send(sprintf "%s [%s]", $url, $remote->{type});
+            return;
+        }
+
+        if ($self->is_twitter($remote->{url})) {
+            $remote->{url} =~ s{\.com/#!/}{.com/};
+            say "Twitter: $remote->{url}" if DEBUG;
+            $self->ua->get($remote->{url}, sub {
+                my $res = shift;
+
+                unless ($res->is_success) {
+                    $self->send(sprintf "Error: %s", $res->status_line);
+                    return;
+                }
+
+                my $ts = scraper {
+                    process '.entry-content', 'tweet' => 'TEXT';
+                    process '.screen-name', 'name' => 'TEXT';
+                };
+
+                my $s = $ts->scrape($res->decoded_content);
+
+                $self->send(sprintf "<%s> %s / via %s", $s->{name}, $s->{tweet}, $remote->{url});
+            });
             return;
         }
 
