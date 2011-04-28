@@ -146,7 +146,7 @@ sub resolve {
                 $info->{content_type} = '';
             }
 
-            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{content_type}, $url);
+            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{content_type}, $res->header('url'));
         });
     });
 }
