@@ -107,13 +107,19 @@ sub resolve {
 
     $self->ua->head($url, sub {
         my $res = shift;
+        my $h = $res->headers;
         say "HEAD: $url" if DEBUG;
 
-        my $host = URI->new( $res->header('url') )->host;
+        # NOTE: $host must be predecleared for $remote->{addr}
+        my $host = URI->new( $h->header('url') )->host;
+
         my $remote = {
-            host => $host,
-            addr => inet_ntoa( inet_aton($host) ),
-            length => $res->headers->content_length ? $res->headers->content_length : 0,
+            host   => $host,
+            addr   => inet_ntoa( inet_aton($host) ),
+            length => $h->content_length ? $h->content_length : 0,
+            url    => $h->header('url')  ? $h->header('url')  : $url,
+            type   => $h->content_type   ? scalar $h->content_type : 'text/plain',
+                # NOTE: content_type should be called in scalar context
         };
 
         if ($remote->{addr} eq $self->loopback) {
@@ -126,27 +132,30 @@ sub resolve {
             return;
         }
 
-        if ($res->headers->content_type ne 'text/html') {
-            $self->send(sprintf "%s [%s]", $url, $res->headers->content_type);
+        if ($remote->{type} ne 'text/html') {
+            $self->send(sprintf "%s [%s]", $url, $remote->{type});
             return;
         }
 
         $self->ua->get($url, sub {
             my $res = shift;
+            my $h = $res->headers;
             say "GET: $url" if DEBUG;
 
             my $info = {};
             if ($res->is_success) {
-                my $scraper = scraper { process '/html/head/title', 'title' => 'TEXT'; };
+                my $scraper = scraper {
+                    process '/html/head/title', 'title' => 'TEXT';
+                };
                 my $data = $scraper->scrape($res->decoded_content);
                 $info->{title} = $data->{title};
-                $info->{content_type} = $res->headers->content_type;
+                $info->{type} = $h->content_type;
             } else {
                 $info->{title} = $res->status_line;
-                $info->{content_type} = '';
+                $info->{type} = '';
             }
 
-            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{content_type}, $res->header('url'));
+            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{type}, $h->header('url'));
         });
     });
 }
