@@ -1,6 +1,6 @@
 package App::Mobijiro;
 use practical;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use constant DEBUG => $ENV{MOBIJIRO_DEBUG};
 use parent 'Class::Accessor::Fast';
 __PACKAGE__->mk_accessors(qw/
