@@ -22,11 +22,11 @@ if (-f "$FindBin::Bin/../settings.pl") {
     };
 }
 
-my $cv = AE::cv;
 my $w = App::Mobijiro->new(
     %$CONFIG,
 )->run;
-$cv->recv;
+
+AE::cv->recv;
 
 __END__
 

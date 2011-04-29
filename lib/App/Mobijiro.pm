@@ -4,7 +4,7 @@ our $VERSION = '0.02';
 use constant DEBUG => $ENV{MOBIJIRO_DEBUG};
 use parent 'Class::Accessor::Fast';
 __PACKAGE__->mk_accessors(qw/
-    ua cv scraper loopback channel client
+    loopback channel
 /);
 
 use AE;
@@ -50,7 +50,6 @@ sub connect {
             if (defined $err) {
                 say "Connect error: $err" if DEBUG;
                 $CONNECTION = 0;
-                $self->cv->boroadcast;
             } else {
                 say "Connected" if DEBUG;
                 $CONNECTION = 1;
@@ -58,9 +57,9 @@ sub connect {
         },
         registered => sub {
             say "Registered" if DEBUG;
-            $self->client->enable_ping(60);
-            $self->client->send_srv("JOIN", $self->channel);
-            $self->client->send_chan($self->channel, "NOTICE", $self->channel, "Hi, I'm a bot!");
+            $self->{client}->enable_ping(60);
+            $self->{client}->send_srv("JOIN", $self->channel);
+            $self->{client}->send_chan($self->channel, "NOTICE", $self->channel, "Hi, I'm a bot!");
         },
         irc_privmsg => sub {
             my $msg = Encode::decode_utf8($_[1]->{params}[1]);
@@ -73,8 +72,8 @@ sub connect {
         },
     );
 
-    $self->client->reg_cb(%opts);
-    $self->client->connect($self->{server}, $self->{port}, $self->{info})
+    $self->{client}->reg_cb(%opts);
+    $self->{client}->connect($self->{server}, $self->{port}, $self->{info})
 }
 
 sub resolve {
@@ -82,7 +81,7 @@ sub resolve {
 
     return unless Data::Validate::URI::is_uri($url);
 
-    $self->ua->head($url, sub {
+    $self->{ua}->head($url, sub {
         my $res = shift;
         my $h = $res->headers;
         say "HEAD: $url" if DEBUG;
@@ -117,7 +116,7 @@ sub resolve {
         if ($self->is_twitter($remote->{url})) {
             $remote->{url} =~ s{\.com/#!/}{.com/};
             say "Twitter: $remote->{url}" if DEBUG;
-            $self->ua->get($remote->{url}, sub {
+            $self->{ua}->get($remote->{url}, sub {
                 my $res = shift;
 
                 unless ($res->is_success) {
@@ -137,7 +136,7 @@ sub resolve {
             return;
         }
 
-        $self->ua->get($url, sub {
+        $self->{ua}->get($url, sub {
             my $res = shift;
             my $h = $res->headers;
             say "GET: $url" if DEBUG;
@@ -162,7 +161,7 @@ sub resolve {
 
 sub send {
     my $self = shift;
-    $self->client->send_chan(
+    $self->{client}->send_chan(
         $self->channel, "NOTICE", $self->channel, Encode::encode_utf8(shift)
     );
 }
