@@ -4,7 +4,7 @@ our $VERSION = '0.02';
 use constant DEBUG => $ENV{MOBIJIRO_DEBUG};
 use parent 'Class::Accessor::Fast';
 __PACKAGE__->mk_accessors(qw/
-    loopback channel
+    loopback channel connection
 /);
 
 use AE;
@@ -32,10 +32,10 @@ sub new {
 
 sub run {
     my $self = shift;
-    my $con_watcher; $con_watcher = AE::timer 5, 30, sub {
+    my $con_watcher; $con_watcher = AE::timer 5, 90, sub {
         say "con_watcher" if DEBUG;
-        $self->connect unless $CONNECTION;
-        undef $con_watcher;
+
+        $self->connect unless $self->connection;
     };
     return $con_watcher;
 }
@@ -49,10 +49,10 @@ sub connect {
 
             if (defined $err) {
                 say "Connect error: $err" if DEBUG;
-                $CONNECTION = 0;
+                $self->connection(0);
             } else {
                 say "Connected" if DEBUG;
-                $CONNECTION = 1;
+                $self->connection(1);
             }
         },
         registered => sub {
@@ -67,7 +67,7 @@ sub connect {
             $self->resolve($_) for @url;
         },
         disconnect => sub {
-            $CONNECTION = 0;
+            $self->connection(0);
             say "Disconnected: $_[1]" if DEBUG;
         },
     );
@@ -169,7 +169,7 @@ sub send {
 sub is_twitter {
     my $self = shift;
     say "Is Twitter: $_[0]" if DEBUG;
-    return ($_[0] =~ m{^https?://twitter.com/(?:#!/)?[^/]+/status/\d+}) ? 1 : undef;
+    return ($_[0] =~ m{^https?://twitter.com/(?:#!/)?[^/]+/status(?:es)?/\d+}) ? 1 : undef;
 }
 
 
