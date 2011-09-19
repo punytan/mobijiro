@@ -24,7 +24,9 @@ sub new {
 
     return bless {
         %args,
-        ua       => Tatsumaki::HTTPClient->new,
+        ua => Tatsumaki::HTTPClient->new(
+            agent => 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/534.30 (KHTML, like Gecko)'
+        ),
         client   => AnyEvent::IRC::Client->new,
         loopback => inet_ntoa( inet_aton('localhost') ),
     }, $class;
@@ -131,7 +133,7 @@ sub resolve {
 
                 my $s = $ts->scrape($res->decoded_content);
 
-                $self->send(sprintf "<%s> %s / via %s", $s->{name}, $s->{tweet}, $remote->{url});
+                $self->send(sprintf "<%s> %s / via %s", $s->{name}, $s->{tweet}, URI->new($remote->{url})->host);
             });
             return;
         }
@@ -154,7 +156,7 @@ sub resolve {
                 $info->{type} = '';
             }
 
-            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{type}, $h->header('url'));
+            $self->send(sprintf "%s [%s] %s", $info->{title}, $info->{type}, URI->new($h->header('url'))->host);
         });
     });
 }
