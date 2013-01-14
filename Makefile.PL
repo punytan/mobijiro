@@ -9,6 +9,8 @@ requires 'Tatsumaki::HTTPClient';
 requires 'URI';
 requires 'Web::Scraper';
 
+install_script 'bin/mobijiro.pl';
+
 tests 't/*.t';
 author_tests 'xt';
 
