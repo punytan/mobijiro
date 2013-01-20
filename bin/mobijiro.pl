@@ -7,26 +7,24 @@ use Getopt::Long;
 
 my %opts;
 
-GetOptions(\%opts, qw< server=s port=i channel=s nick=s user=s real=s >);
+GetOptions(\%opts, qw< server=s port=i channel=s nick=s user=s real=s >)
+    or die "Invalid arguments";
 
-my $server  = $opts{server}  or die "`server` option is required";
-my $port    = $opts{port}    or die "`port` option is required";
-my $channel = $opts{channel} or die "`channel` option is required";
-my $nick    = $opts{nick}    or die "`nick` option is required";
-my $user    = $opts{user} || $nick;
-my $real    = $opts{real} || $nick;
+for my $key (qw/ server port channel nick /) {
+    $opts{$key} or die "$key is required";
+}
 
 my $cv = AE::cv;
 
 my $app = App::Mobijiro->new(
     cv      => $cv,
-    server  => $server,
-    port    => $port,
-    channel => $channel,
+    server  => $opts{server},
+    port    => $opts{port},
+    channel => $opts{channel},
     info    => {
-        nick => $nick,
-        user => $user,
-        real => $real,
+        nick => $opts{nick},
+        user => $opts{user} || $opts{nick},
+        real => $opts{real} || $opts{nick},
     }
 );
 
