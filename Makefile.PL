@@ -3,6 +3,7 @@ name 'App-Mobijiro';
 all_from 'lib/App/Mobijiro.pm';
 
 requires 'AE';
+requires 'EV';
 requires 'AnyEvent::IRC::Client';
 requires 'Data::Validate::URI';
 requires 'Tatsumaki::HTTPClient';
