@@ -1,10 +1,11 @@
 package App::Mobijiro;
 use strict;
 use warnings;
-use feature 'say';
 our $VERSION = '0.02';
 
+use EV;
 use AE;
+use AnyEvent::Log;
 use Encode;
 use Socket;
 use AnyEvent::IRC::Client;
@@ -35,6 +36,7 @@ sub new {
         loopback  => $loopback,
         server    => $server,
         channel   => $channel,
+        log_level => 'info',
         port => $port,
         info => {
             nick => $nick,
@@ -46,10 +48,16 @@ sub new {
 
 sub channel { shift->{channel} }
 
+sub log {
+    my ($self, $level, $message) = @_;
+    $AnyEvent::Log::FILTER->level($self->{log_level});
+    AE::log($level, $message);
+}
+
 sub run {
     my $self = shift;
     my $con_watcher; $con_watcher = AE::timer 5, 30, sub {
-        say "called con_watcher";
+        $self->log(info => "called con_watcher");
         unless ($self->{client}->registered) {
             $self->connect;
             $self->{client}->send_srv("JOIN", $self->channel);
@@ -65,10 +73,10 @@ sub connect {
     $self->{client}->reg_cb(
         connect => sub {
             my ($cl, $err) = @_;
-            say defined $err ? "Connect error: $err" : "Connected"
+            $self->log(info => (defined $err ? "Connect error: $err" : "Connected"));
         },
         registered => sub {
-            say "Registered";
+            $self->log(info => "Registered");
             $self->{client}->enable_ping(10);
         },
         irc_privmsg => sub {
@@ -78,7 +86,7 @@ sub connect {
         },
         disconnect => sub {
             $self->{cv}->broadcast;
-            say "Disconnected: $_[1]";
+            $self->log(warn => "Disconnected: $_[1]");
         },
     );
 
@@ -93,7 +101,7 @@ sub resolve {
     $self->{useragent}->head($url, sub {
         my $res = shift;
         my $h = $res->headers;
-        say "HEAD: $url";
+        $self->log(info => "HEAD: $url");
 
         # NOTE: $host must be predecleared for $remote->{addr}
         my $host = URI->new( $h->header('url') )->host;
@@ -124,7 +132,7 @@ sub resolve {
 
         if ($self->is_twitter($remote->{url})) {
             $remote->{url} =~ s{\.com/#!/}{.com/};
-            say "Twitter: $remote->{url}";
+            $self->log(info => "Twitter: $remote->{url}");
             $self->{useragent}->get($remote->{url}, sub {
                 my $res = shift;
 
@@ -146,7 +154,7 @@ sub resolve {
         $self->{useragent}->get($url, sub {
             my $res = shift;
             my $h = $res->headers;
-            say "GET: $url";
+            $self->log(info => "GET: $url");
 
             my $info = {};
             my ($title, $content_type);
@@ -170,7 +178,7 @@ sub send {
 
 sub is_twitter {
     my ($self, $url) = @_;
-    say "called is_twitter: $url";
+    $self->log(debug => "called is_twitter: $url");
     $url =~ m{^https?://twitter.com/(?:#!/)?[^/]+/status(?:es)?/\d+} ? 1 : 0;
 }
 
