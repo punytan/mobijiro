@@ -9,6 +9,7 @@ requires 'Data::Validate::URI';
 requires 'Tatsumaki::HTTPClient';
 requires 'URI';
 requires 'Web::Scraper';
+requires 'Net::SSLeay'    => 1.35;
 
 install_script 'bin/mobijiro.pl';
 
